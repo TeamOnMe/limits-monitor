@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Лимиты бесплатных моделей OpenCode</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: #faf6f3; color: #2c2420; min-height: 100vh;
+    padding: 20px 16px 40px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  .sub { color: #8a7a72; font-size: 14px; margin-bottom: 18px; }
+
+  .pill {
+    display: inline-block; padding: 10px 18px; border-radius: 999px;
+    font-weight: 600; font-size: 16px; margin-bottom: 16px;
+    background: #e7f6ec; color: #1e7a41; border: 1px solid #bfe6cd;
+  }
+  .pill.bad { background: #fdecec; color: #b3261e; border: 1px solid #f3c2bf; }
+
+  .card {
+    background: #fff; border: 1px solid #eadfd6; border-radius: 16px;
+    padding: 18px; margin-bottom: 14px; box-shadow: 0 2px 8px rgba(0,0,0,.04);
+  }
+  .card h2 { font-size: 15px; font-weight: 600; color: #8a7a72; margin-bottom: 10px; text-transform: uppercase; letter-spacing: .4px; }
+
+  .bignum { font-size: 40px; font-weight: 700; line-height: 1.1; }
+  .bignum small { font-size: 18px; font-weight: 600; color: #8a7a72; }
+  .row { display: flex; gap: 24px; flex-wrap: wrap; }
+  .row > div { flex: 1; min-width: 140px; }
+  .label { font-size: 13px; color: #8a7a72; margin-bottom: 2px; }
+
+  .bar { height: 14px; background: #f1e7e0; border-radius: 999px; overflow: hidden; margin: 14px 0 8px; }
+  .bar i { display: block; height: 100%; background: #c05e7a; border-radius: 999px; transition: width .5s; }
+  .bar i.bad { background: #d64545; }
+
+  .count { font-size: 26px; font-weight: 700; }
+  .count.ok { color: #1e7a41; }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .stat { background: #faf6f3; border-radius: 12px; padding: 12px 14px; }
+  .stat .v { font-size: 22px; font-weight: 700; }
+  .stat .k { font-size: 12.5px; color: #8a7a72; margin-top: 2px; line-height: 1.35; }
+
+  /* дашборд */
+  .legend { display: flex; gap: 16px; font-size: 13px; color: #8a7a72; margin-bottom: 10px; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: baseline; }
+  .chart { width: 100%; height: 150px; display: block; }
+  .chart text { font-size: 10px; fill: #8a7a72; }
+  .model-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 14px; }
+  .model-name { flex: 0 0 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .model-bar { flex: 1; height: 10px; background: #f1e7e0; border-radius: 999px; overflow: hidden; }
+  .model-bar i { display: block; height: 100%; background: #c05e7a; border-radius: 999px; }
+  .model-count { flex: 0 0 40px; text-align: right; font-weight: 600; }
+
+  .foot { color: #8a7a72; font-size: 13px; text-align: center; margin-top: 18px; line-height: 1.6; }
+  .foot a { color: #c05e7a; text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Бесплатные модели OpenCode</h1>
+  <div class="sub">Лимиты и время до обновления. Страница обновляется сама каждую минуту.</div>
+
+  <div class="pill" id="pill">Загрузка данных…</div>
+
+  <div class="card">
+    <h2>Запросы за последние 24 часа</h2>
+    <div class="row">
+      <div>
+        <div class="label">Использовано</div>
+        <div class="bignum" id="used">—</div>
+      </div>
+      <div>
+        <div class="label">Осталось (примерно)</div>
+        <div class="bignum" id="remaining">—</div>
+      </div>
+      <div>
+        <div class="label">Всего в лимите</div>
+        <div class="bignum"><small>≈</small><span id="limit">—</span></div>
+      </div>
+    </div>
+    <div class="bar"><i id="bar" style="width:0%"></i></div>
+    <div class="label" id="barHint">Каждый блок на полосе — один запрос к бесплатной модели.</div>
+  </div>
+
+  <div class="card">
+    <h2>До обновления лимита</h2>
+    <div class="row">
+      <div>
+        <div class="label">Ближайший запрос освободится через</div>
+        <div class="count" id="firstSlot">—</div>
+      </div>
+      <div>
+        <div class="label">Лимит обновится полностью через</div>
+        <div class="count" id="fullReset">—</div>
+      </div>
+      <div>
+        <div class="label">Сервис разрешит работу снова через</div>
+        <div class="count" id="serviceReset">—</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Дашборд · история за 7 дней</h2>
+    <div class="stats" style="margin-bottom:14px">
+      <div class="stat"><div class="v" id="dFree7">—</div><div class="k">бесплатных ответов за неделю</div></div>
+      <div class="stat"><div class="v" id="dPaid7">—</div><div class="k">платных ответов за неделю</div></div>
+      <div class="stat"><div class="v" id="dShare">—</div><div class="k">доля бесплатных</div></div>
+    </div>
+    <div class="legend">
+      <span><i style="background:#c05e7a"></i>бесплатные</span>
+      <span><i style="background:#b9aeb0"></i>платные</span>
+      <span id="hoverInfo" style="margin-left:auto"></span>
+    </div>
+    <svg class="chart" id="chart" viewBox="0 0 720 150" preserveAspectRatio="none"></svg>
+  </div>
+
+  <div class="card">
+    <h2>Какие модели отвечали (7 дней)</h2>
+    <div id="models">—</div>
+  </div>
+
+  <div class="card">
+    <h2>Реальный расход · сколько запросов выдерживал день</h2>
+    <div class="stats" style="margin-bottom:14px">
+      <div class="stat"><div class="v" id="uBest">—</div><div class="k">рекорд: успешных бесплатных запросов за день</div></div>
+      <div class="stat"><div class="v" id="uBlocks">—</div><div class="k">отказов «лимит» за неделю</div></div>
+      <div class="stat"><div class="v" id="uChain">—</div><div class="k">раз вся цепочка моделей была исчерпана</div></div>
+    </div>
+    <div id="usageDays">—</div>
+    <div class="label" style="margin-top:10px">Точный лимит сервис не публикует — он динамический. Эта таблица показывает фактический расход: столько запросов выдержал каждый день до отказа «лимит».</div>
+  </div>
+
+  <div class="card">
+    <h2>Подробности</h2>
+    <div class="stats">
+      <div class="stat"><div class="v" id="usedToday">—</div><div class="k">Запросов сегодня</div></div>
+      <div class="stat"><div class="v" id="blocked">—</div><div class="k">Отказов по лимиту сегодня</div></div>
+      <div class="stat"><div class="v" id="errors">—</div><div class="k">Ошибок бесплатных моделей за 24 ч</div></div>
+      <div class="stat"><div class="v" id="worm">—</div><div class="k">Ответов платной модели (Wormsoft) за 24 ч</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Платная модель · Wormsoft</h2>
+    <div class="pill" id="wPill" style="margin-bottom:12px">Загрузка…</div>
+    <div class="stats" style="margin-bottom:14px">
+      <div class="stat"><div class="v" id="wToday">—</div><div class="k">токенов сегодня (МСК)</div></div>
+      <div class="stat"><div class="v" id="w24h">—</div><div class="k">токенов за 24 часа</div></div>
+      <div class="stat"><div class="v" id="wReqs">—</div><div class="k">запросов за 24 часа</div></div>
+    </div>
+    <div class="row">
+      <div>
+        <div class="label">Входящие / исходящие токены за 24 ч</div>
+        <div id="wInOut" style="font-weight:600">—</div>
+      </div>
+      <div>
+        <div class="label">Лимит кредитов снят / будет снят</div>
+        <div id="wReset" style="font-weight:600">—</div>
+      </div>
+    </div>
+    <div class="label" id="wHint" style="margin-top:10px"></div>
+  </div>
+
+  <div class="foot">
+    Данные обновлены: <b id="updated">—</b><br>
+    Числа — оценка по журналу запросов: точный лимит сервис не показывает.<br>
+    <a href="/">← Вернуться на сайт «Диантус»</a>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+function fmtLeft(ts) {
+  if (!ts) return '—';
+  let d = ts - Date.now();
+  if (d <= 0) return 'уже доступно';
+  const h = Math.floor(d / 3600000), m = Math.floor(d % 3600000 / 60000), s = Math.floor(d % 60000 / 1000);
+  if (h > 0) return h + ' ч ' + m + ' мин';
+  if (m > 0) return m + ' мин ' + s + ' с';
+  return s + ' с';
+}
+
+function fmtDate(ts) {
+  return new Date(ts).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+}
+
+let data = null, hist = null, worm = null;
+
+function tickLeft(ts) {
+  if (!ts) return '—';
+  let d = ts - Date.now();
+  if (d <= 0) return 'уже доступно';
+  const h = Math.floor(d / 3600000), m = Math.floor(d % 3600000 / 60000);
+  return h > 0 ? h + ' ч ' + m + ' мин' : m + ' мин';
+}
+
+function render() {
+  if (!data) return;
+  const used = data.used_24h || 0, limit = data.limit || 200;
+  $('used').textContent = used;
+  $('remaining').textContent = Math.max(0, limit - used);
+  $('limit').textContent = limit;
+
+  const pct = Math.min(100, Math.round(used / limit * 100));
+  $('bar').style.width = pct + '%';
+  $('bar').classList.toggle('bad', pct >= 90);
+  $('barHint').textContent = 'Использовано ' + pct + '% суточного запаса.';
+
+  $('usedToday').textContent = data.used_today ?? '—';
+  $('blocked').textContent = data.blocked_today ?? '—';
+  $('errors').textContent = data.free_errors_24h ?? '—';
+  $('worm').textContent = data.wormsoft_24h ?? '—';
+  $('updated').textContent = data.updated ? fmtDate(data.updated) : '—';
+
+  const pill = $('pill');
+  if (data.limit_active) {
+    pill.textContent = '⚠ Лимит исчерпан — сейчас отвечает платная модель';
+    pill.classList.add('bad');
+  } else {
+    pill.textContent = '✓ Бесплатные модели работают';
+    pill.classList.remove('bad');
+  }
+  tick();
+}
+
+function drawChart() {
+  if (!hist || !hist.hours) return;
+  const svg = $('chart'), W = 720, H = 150, padB = 16;
+  const hours = hist.hours, n = hours.length;
+  const maxV = Math.max(1, ...hours.map(h => h.free + h.paid));
+  const bw = W / n;
+  let out = '';
+  // сетка по дням (каждые 24 часа)
+  for (let i = 0; i < n; i += 24) {
+    const x = (i * bw).toFixed(1);
+    out += `<line x1="${x}" y1="0" x2="${x}" y2="${H - padB}" stroke="#eadfd6"/>`;
+    const d = new Date(hours[i].h);
+    out += `<text x="${(+x + 3).toFixed(1)}" y="${H - 4}">${d.getDate()}.${String(d.getMonth()+1).padStart(2,'0')}</text>`;
+  }
+  hours.forEach((h, i) => {
+    const total = h.free + h.paid;
+    if (!total) return;
+    const x = (i * bw).toFixed(1);
+    const hf = (h.free / maxV * (H - padB)).toFixed(1);
+    const hp = (h.paid / maxV * (H - padB)).toFixed(1);
+    out += `<rect x="${x}" y="${(H - padB - (+hf) - (+hp)).toFixed(1)}" width="${Math.max(2, bw - 1).toFixed(1)}" height="${hp}" fill="#b9aeb0"><title>${fmtHourLabel(h.h)} · платных: ${h.paid}</title></rect>`;
+    out += `<rect x="${x}" y="${(H - padB - (+hf)).toFixed(1)}" width="${Math.max(2, bw - 1).toFixed(1)}" height="${hf}" fill="#c05e7a"><title>${fmtHourLabel(h.h)} · бесплатных: ${h.free}</title></rect>`;
+  });
+  svg.innerHTML = out;
+  $('dFree7').textContent = hist.totals.free_7d;
+  $('dPaid7').textContent = hist.totals.paid_7d;
+  const tot = hist.totals.free_7d + hist.totals.paid_7d;
+  $('dShare').textContent = tot ? Math.round(hist.totals.free_7d / tot * 100) + '%' : '—';
+}
+
+function fmtHourLabel(ts) {
+  return new Date(ts).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit' }) + ':00';
+}
+
+function drawModels() {
+  if (!hist || !hist.models || !hist.models.length) { $('models').textContent = 'Пока нет данных'; return; }
+  const max = hist.models[0].count;
+  $('models').innerHTML = hist.models.map(m =>
+    `<div class="model-row"><div class="model-name" title="${m.model}">${m.model}</div>` +
+    `<div class="model-bar"><i style="width:${Math.max(3, m.count / max * 100)}%"></i></div>` +
+    `<div class="model-count">${m.count}</div></div>`).join('');
+}
+
+let usage = null;
+function dayLabel(ts) {
+  return new Date(ts).toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow', day: '2-digit', month: '2-digit', weekday: 'short' });
+}
+function drawUsage() {
+  if (!usage || !usage.days) return;
+  const blockByDay = {};
+  (usage.blocks || []).forEach(b => {
+    const k = new Date(b.ts).toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow' });
+    blockByDay[k] = (blockByDay[k] || 0) + 1;
+  });
+  const todayKey = new Date().toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow' });
+  const rows = usage.days.map(d => {
+    const key = new Date(d.day).toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow' });
+    const blocks = blockByDay[key] || 0;
+    const today = key === todayKey ? ' (сегодня)' : '';
+    const badge = blocks ? ` <span style="color:#c0392b">⛔ ${blocks}</span>` : '';
+    const models = Object.entries(d.models || {}).sort((a, b) => b[1] - a[1])
+      .slice(0, 3).map(([m, c]) => `${m.split('-')[0]}:${c}`).join(', ');
+    return `<div class="model-row"><div class="model-name" style="width:110px">${dayLabel(d.day)}${today}</div>` +
+      `<div class="model-bar"><i style="width:${Math.min(100, d.free_ok * 100 / Math.max(1, usage.best_day.free_ok))}%; background:#c05e7a"></i></div>` +
+      `<div class="model-count">${d.free_ok}${badge}</div></div>` +
+      (models ? `<div class="label" style="margin:-4px 0 6px 110px; font-size:12px">${models}</div>` : '');
+  }).join('');
+  $('usageDays').innerHTML = rows || 'Пока нет данных';
+  $('uBest').textContent = usage.best_day ? usage.best_day.free_ok : '—';
+  $('uBlocks').textContent = (usage.blocks || []).length;
+  $('uChain').textContent = usage.chain_dead_count ?? 0;
+}
+
+function tick() {
+  if (!data) return;
+  $('firstSlot').textContent = fmtLeft(data.first_slot_at);
+  $('fullReset').textContent = fmtLeft(data.full_reset_at);
+  $('serviceReset').textContent = data.reset_at ? fmtLeft(data.reset_at) : '—';
+  if (worm && worm.status === 'limited' && worm.reset_at) {
+    $('wReset').textContent = 'лимит снимается через ' + tickLeft(worm.reset_at);
+  }
+}
+
+async function load() {
+  try {
+    const r = await fetch('status.json?ts=' + Date.now(), { cache: 'no-store' });
+    data = await r.json();
+    render();
+  } catch (e) {
+    $('pill').textContent = 'Не удалось получить данные — обновите страницу';
+    $('pill').classList.add('bad');
+  }
+  try {
+    const r = await fetch('history.json?ts=' + Date.now(), { cache: 'no-store' });
+    hist = await r.json();
+    drawChart();
+    drawModels();
+  } catch (e) { /* дашборд вторичен — статус-блок уже показан */ }
+  try {
+    const r = await fetch('wormsoft.json?ts=' + Date.now(), { cache: 'no-store' });
+    worm = await r.json();
+    drawWorm();
+  } catch (e) { $('wPill').textContent = 'Нет данных по Wormsoft'; }
+  try {
+    const r = await fetch('usage.json?ts=' + Date.now(), { cache: 'no-store' });
+    usage = await r.json();
+    drawUsage();
+  } catch (e) { /* карточка расхода вторична */ }
+}
+
+function fmtTok(n) {
+  if (n == null) return '—';
+  if (n >= 1000000) return (n / 1000000).toFixed(1).replace('.', ',') + ' млн';
+  if (n >= 1000) return Math.round(n / 1000) + ' тыс.';
+  return String(n);
+}
+
+function drawWorm() {
+  if (!worm) return;
+  const pill = $('wPill');
+  if (worm.status === 'limited') {
+    pill.textContent = '⚠ Лимит исчерпан — вернётся ' + fmtDate(worm.reset_at);
+    pill.classList.add('bad');
+  } else {
+    pill.textContent = '✓ Платная модель работает';
+    pill.classList.remove('bad');
+  }
+  $('wToday').textContent = fmtTok(worm.total_today && worm.total_today.total);
+  $('w24h').textContent = fmtTok(worm.total_24h && worm.total_24h.total);
+  $('wReqs').textContent = (worm.total_24h && worm.total_24h.reqs) ?? '—';
+  const t = worm.total_24h || {};
+  $('wInOut').textContent = fmtTok(t.in) + ' / ' + fmtTok(t.out);
+  if (worm.reset_at) {
+    if (worm.status === 'limited') {
+      $('wReset').textContent = 'лимит снимается через ' + tickLeft(worm.reset_at);
+    } else {
+      $('wReset').textContent = fmtDate(worm.reset_at);
+    }
+  } else $('wReset').textContent = 'отказов по лимиту не было';
+  $('wHint').textContent = 'Токены считаются по журналу запросов ассистента и программы oc. Время лимита Wormsoft сообщает сам в ответе при отказе — точный остаток кредитов виден только в личном кабинете ai.wormsoft.ru/lk.';
+}
+
+load();
+setInterval(load, 60000);
+setInterval(tick, 1000);
+</script>
+</body>
+</html>
